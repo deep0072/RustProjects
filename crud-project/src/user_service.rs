@@ -1,13 +1,14 @@
-use sqlx::postgres::PgPoolOptions;
+use sqlx::{postgres::PgPoolOptions, PgPool};
 
-struct UserService{
-    pool:PgPool
+#[derive(Clone)]
+pub struct UserService{
+    pub pool:PgPool;
 }
 
 impl UserService {
     pub async fn new() ->Result<Self, Error>{
         let pool = PgPoolOptions::new()
-            .max_connection(5)
+            .max_connections(5)
             .connect("postgres://postgres:@localhost/test")
             .await?;
 
@@ -54,11 +55,8 @@ impl UserService {
 
     }
     pub async fn delete_user(&self, id:i64, user:UserInfo) -> Result<(),Error>{
-        sqlx::query("UPDATE users SET name=$1,occupation=$2,email=$3,phone=$4 WHERE id=$5")
-            .bind(user.name)
-            .bind(user.occupation)
-            .bind(user.email)
-            .bind(user.phone)
+        sqlx::query("DELETE FROM  users  WHERE id=$1")
+            
             .bind(id)
             .execute(&self.pool)
             .await?;
