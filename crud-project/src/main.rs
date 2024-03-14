@@ -8,6 +8,7 @@ use crate::user_service::UserService;
 mod user_service;
 
 #[tokio::main]
+
 async fn main() {
 
     println!("server starting....");
@@ -16,7 +17,7 @@ async fn main() {
 
 
     let app = Router::new()
-                                .route("/user", get(list_users))
+                                .route("/users", get(list_users))
                                 .route("/user/:id", get(get_user_by_id))
                                 .route("/create_user", post(create_user))
                                 .route("/user/:id", put(update_user))
@@ -28,7 +29,7 @@ async fn main() {
     //extensions
     
     let listener = tokio::net::TcpListener::bind("localhost:3000").await.unwrap();
-    println!("listening....")
+    println!("listening....");
 
     axum::serve(listener,app).await.unwrap();
 
