@@ -1,4 +1,5 @@
-
+use std::env;
+use dotenv::dotenv;
 use sqlx::{postgres::PgPoolOptions, PgPool,Error};
 
 use crate::model::{User, UserInfo};
@@ -10,9 +11,13 @@ pub struct UserService{
 
 impl UserService {
     pub async fn new() ->Result<Self, Error>{
+     
+        println!("{}", dotenv().unwrap().display());
+        println!("ok.....{:?}",env::var("DATABASE_URL"));
+        let db_url = env::var("DATABASE_URL").expect("Expected db creds");
         let pool = PgPoolOptions::new()
             .max_connections(5)
-            .connect("postgres://postgres:753159@localhost/test")
+            .connect(&db_url)
             .await?;
 
         Ok(Self {pool})

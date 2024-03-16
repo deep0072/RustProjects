@@ -28,10 +28,19 @@ async fn main() {
     // This allows all handlers within the application to access the UserService instance through the request's 
     //extensions
     
-    let listener = tokio::net::TcpListener::bind("localhost:3000").await.unwrap();
-    println!("listening....");
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+ 
 
-    axum::serve(listener,app).await.unwrap();
+    match axum::serve(listener,app).await {
+        Ok(_) =>       println!("listenkkkkking...."),
+        Err(e)=>{
+            println!("connection error {}",e)
+        }
+
+    }
+    println!("listenkkkkking....");
+ 
+    
 
 
 }
