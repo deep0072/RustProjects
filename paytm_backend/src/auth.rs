@@ -1,12 +1,15 @@
 use axum::{
     body::Body,
     extract::{Json, Request},
-    http::{HeaderMap, StatusCode,header},
+    http::{header, HeaderMap, StatusCode},
     middleware::{self, Next},
-    response::{IntoResponse,Response},
+    response::{IntoResponse, Response},
 };
 
-use crate::{models::{Claims, TokenResponse}, handler::MyError};
+use crate::{
+    handler::MyError,
+    models::{Claims, TokenResponse},
+};
 use axum_extra::{
     headers::{
         authorization::{Basic, Bearer},
@@ -19,7 +22,7 @@ use jsonwebtoken::{
     decode, encode, Algorithm, DecodingKey, EncodingKey, Header, TokenData, Validation,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::json;   
+use serde_json::json;
 
 pub async fn encode_jwt(email: String) -> Result<String, MyError> {
     let claims = Claims {
@@ -70,7 +73,7 @@ pub async fn encode_jwt(email: String) -> Result<String, MyError> {
 pub fn decode_jwt(jwt: String) -> bool {
     let secret = "secret".to_string();
 
-    let token =  decode::<Claims>(
+    let token = decode::<Claims>(
         &jwt,
         &DecodingKey::from_secret(secret.as_ref()),
         &Validation::default(),
@@ -79,9 +82,7 @@ pub fn decode_jwt(jwt: String) -> bool {
         Ok(_) => true,
         Err(_) => false,
     }
-   
 }
-
 
 // #[axum_macros::debug_handler]
 // pub async fn my_middleware(mut req: Request, next: Next) -> Result<Response<Body>, StatusCode> {
@@ -111,9 +112,6 @@ pub fn decode_jwt(jwt: String) -> bool {
 //     }
 // }
 
-
-
-
 // #[axum_macros::debug_handler]
 // pub async fn my_middleware(
 //     TypedHeader(token): TypedHeader<Authorization<Bearer>>,
@@ -121,15 +119,12 @@ pub fn decode_jwt(jwt: String) -> bool {
 // ) -> Result<Response<Body>, StatusCode> {
 //     let bearer_token = token.token().to_owned();
 //     let jwt = decode_jwt(bearer_token);
-    
-   
+
 //     match jwt {
 //         Ok(_) => Ok(Response::builder().body(Body::from("JWT validation successful")).unwrap()),
 //         Err(e) => Err(StatusCode::UNAUTHORIZED),
 //     }
 // }
-
-
 
 // use axum::{
 //     middleware::Next,
@@ -141,32 +136,18 @@ pub fn decode_jwt(jwt: String) -> bool {
 // };
 // use axum::body::Body;
 
-
-
-
-pub async fn my_middleware(
-   
-    headers: HeaderMap,
-    request: Request,
-    next: Next
-    ,
-) -> Response{
+pub async fn my_middleware(headers: HeaderMap, request: Request, next: Next) -> Response {
     let token = get_token(&headers).unwrap_or_default().to_string();
 
-    if  decode_jwt(token.clone()) {
+    if decode_jwt(token.clone()) {
         return next.run(request).await;
-        
-       
     }
     (StatusCode::UNAUTHORIZED, "Something went wrong...").into_response()
-
-    
-}  
-
-
+}
 
 fn get_token(headers: &HeaderMap) -> Option<&str> {
-    headers.get("Authorization")
+    headers
+        .get("Authorization")
         .and_then(|value| value.to_str().ok())
         .and_then(|auth_header| auth_header.strip_prefix("Bearer "))
 }

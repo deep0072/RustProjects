@@ -1,10 +1,8 @@
 use crate::{
     account::UserParams,
+    custom_extractor::AuthUser,
     models::{Account, Claims, TokenResponse, User},
-    custom_extractor::AuthUser
 };
-
-
 
 use axum::{
     body,
@@ -20,11 +18,10 @@ use serde_json::{json, Value};
 // use jsonwebtoken::{encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use crate::auth::encode_jwt;
 use mongodb::{
-    bson::{doc, oid::ObjectId,serde_helpers},
-    error::{ TRANSIENT_TRANSACTION_ERROR, UNKNOWN_TRANSACTION_COMMIT_RESULT},
-
+    bson::{doc, oid::ObjectId, serde_helpers},
+    error::{TRANSIENT_TRANSACTION_ERROR, UNKNOWN_TRANSACTION_COMMIT_RESULT},
     options::FindOptions,
-    Collection, Cursor, Database,ClientSession,
+    ClientSession, Collection, Cursor, Database,
 };
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -32,18 +29,15 @@ use std::{error::Error, fmt::Display, u128};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransferRequest {
-   
-    pub to:String,
-    pub amount: String
+    pub to: String,
+    pub amount: String,
 }
-
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BulkUser {
-    #[serde(deserialize_with= "serde_helpers::deserialize_hex_string_from_object_id")]
-    pub _id:String,
-    
+    #[serde(deserialize_with = "serde_helpers::deserialize_hex_string_from_object_id")]
+    pub _id: String,
+
     pub username: String,
     pub email: String,
     pub firstname: String,
@@ -186,6 +180,7 @@ pub async fn login_user(
         .as_ref()
         .map(|user| user.email.clone())
         .unwrap_or("0".to_string());
+
     if user_email.clone() == payload.email {
         let token = encode_jwt(user_email).await?;
 
@@ -199,9 +194,13 @@ pub async fn login_user(
 }
 
 pub async fn bulk_user(
+    AuthUser(user_id): AuthUser,
     Extension(db): Extension<Database>,
     user_params: Query<QueryParams>,
 ) -> Result<Json<Value>, MyError> {
+    let request_user_id = ObjectId::parse_str(user_id).expect("Invalid ObjectId string");
+    println!("requested_use id {}", request_user_id.clone());
+
     let collection: Collection<BulkUser> = db.collection("users");
     let filter = &user_params.filter.clone();
 
@@ -210,37 +209,46 @@ pub async fn bulk_user(
            "$or": vec! [
               doc! { "firstname": { "$regex":&filter}},
               doc! { "lastname": {"$regex":&filter}}
-           ]
+           ],
+           "_id": { "$ne": request_user_id }
         })
         .await?;
 
-    let result:Vec<BulkUser> = cursor.try_collect().await?;
+    let result: Vec<BulkUser> = cursor.try_collect().await?;
 
     Ok(Json(json!({"user":result})))
 }
 
-
-pub async fn transfer_money( AuthUser(user_id): AuthUser,Extension(db): Extension<Database>,Json(payload):Json<TransferRequest>) -> Result<Json<String>, MyError> {
+pub async fn transfer_money(
+    AuthUser(user_id): AuthUser,
+    Extension(db): Extension<Database>,
+    Json(payload): Json<TransferRequest>,
+) -> Result<Json<String>, MyError> {
     let from = user_id;
     let to = payload.to;
-    let amount:i64 = payload.amount.parse().expect("Not a valid number");
-   
+    let amount: i64 = payload.amount.parse().expect("Not a valid number");
 
     let mut session = db.client().start_session().await?;
     session.start_transaction().await?;
-    
-    
 
-    let collection:Collection<Account> = db.collection("accounts");
+    let collection: Collection<Account> = db.collection("accounts");
     let from_obj_id = format!("ObjectId(\"{}\")", from.clone());
     let to_obj_id = format!("ObjectId(\"{}\")", to.clone());
-    println!("from: {} to: {}", from_obj_id.clone(),from_obj_id.clone() );
-    let from_user = collection.find_one_and_update(doc! {"user_id": from_obj_id },doc!{ "$inc": { "balance": -amount.clone() }}).session(&mut session).await?;
-    let to_user = collection.find_one_and_update(doc! {"user_id": to_obj_id }, doc!{"$inc":  { "balance": amount.clone() }}).session(&mut session).await?;
+    println!("from: {} to: {}", from_obj_id.clone(), from_obj_id.clone());
+    let from_user = collection
+        .find_one_and_update(
+            doc! {"user_id": from_obj_id },
+            doc! { "$inc": { "balance": -amount.clone() }},
+        )
+        .session(&mut session)
+        .await?;
+    let to_user = collection
+        .find_one_and_update(
+            doc! {"user_id": to_obj_id },
+            doc! {"$inc":  { "balance": amount.clone() }},
+        )
+        .session(&mut session)
+        .await?;
     session.commit_transaction().await?;
     Ok(Json("successfully transfered".to_string()))
-
 }
-
-
-
